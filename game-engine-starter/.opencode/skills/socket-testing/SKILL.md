@@ -1249,23 +1249,333 @@ def kill_game_processes():
 
 ---
 
-## 七、完整目录结构
+## 七、UI 交互测试
+
+### 7.1 UI 系统对接
+
+游戏需要实现 `UIManager` 来支持 UI 测试：
+
+```python
+# src/engine/ui/manager.py
+from typing import Dict, List, Optional
+
+class UIManager:
+    """UI 管理器"""
+    
+    def __init__(self):
+        self._elements: Dict[str, UIElement] = {}
+        self._root_elements: List[UIElement] = []
+    
+    def register(self, element: UIElement):
+        """注册 UI 元素"""
+        self._elements[element.element_id] = element
+        if element.parent is None:
+            self._root_elements.append(element)
+    
+    def get_element(self, element_id: str) -> Optional[UIElement]:
+        """通过 ID 获取元素"""
+        return self._elements.get(element_id)
+    
+    def find_element_by_name(self, name: str) -> Optional[UIElement]:
+        """通过名称查找元素"""
+        for element in self._elements.values():
+            if element.name == name:
+                return element
+        return None
+    
+    def find_element_by_path(self, path: str) -> Optional[UIElement]:
+        """通过路径查找（如 "inventory_panel/item_slot_0"）"""
+        parts = path.split("/")
+        current = None
+        for part in parts:
+            if current is None:
+                for elem in self._root_elements:
+                    if elem.element_id == part or elem.name == part:
+                        current = elem
+                        break
+            else:
+                for child in current.children:
+                    if child.element_id == part or child.name == part:
+                        current = child
+                        break
+        return current
+    
+    def get_element_at(self, x: int, y: int) -> Optional[UIElement]:
+        """获取指定坐标的元素"""
+        for element in reversed(list(self._elements.values())):
+            if element.visible and element.contains_point(x, y):
+                return element
+        return None
+    
+    def click_at(self, x: int, y: int) -> bool:
+        """点击指定坐标"""
+        element = self.get_element_at(x, y)
+        if element and element.enabled:
+            element.click()
+            return True
+        return False
+    
+    def click_element(self, element_id=None, name=None, path=None) -> bool:
+        """点击指定元素"""
+        element = None
+        if element_id:
+            element = self.get_element(element_id)
+        elif name:
+            element = self.find_element_by_name(name)
+        elif path:
+            element = self.find_element_by_path(path)
+        
+        if element and element.visible and element.enabled:
+            element.click()
+            return True
+        return False
+```
+
+### 7.2 UI 元素基类
+
+```python
+# src/engine/ui/element.py
+from typing import List, Optional
+
+class UIElement:
+    """UI 元素基类"""
+    
+    def __init__(self, element_id: str, name: str = ""):
+        self.element_id = element_id
+        self.name = name
+        self.x = 0
+        self.y = 0
+        self.width = 0
+        self.height = 0
+        self.visible = True
+        self.enabled = True
+        self.parent: Optional[UIElement] = None
+        self.children: List[UIElement] = []
+    
+    def contains_point(self, x: int, y: int) -> bool:
+        """检查点是否在元素内"""
+        return (self.x <= x < self.x + self.width and
+                self.y <= y < self.y + self.height)
+    
+    def click(self):
+        """点击事件 - 子类重写"""
+        pass
+    
+    def to_dict(self):
+        """序列化"""
+        return {
+            "id": self.element_id,
+            "name": self.name,
+            "type": self.__class__.__name__,
+            "x": self.x,
+            "y": self.y,
+            "width": self.width,
+            "height": self.height,
+            "visible": self.visible,
+            "enabled": self.enabled,
+        }
+```
+
+### 7.3 UI 组件示例
+
+```python
+# src/engine/ui/widgets.py
+
+class Button(UIElement):
+    """按钮"""
+    
+    def __init__(self, element_id: str, name: str = "", on_click=None):
+        super().__init__(element_id, name)
+        self.on_click = on_click
+        self.text = ""
+    
+    def click(self):
+        if self.enabled and self.on_click:
+            self.on_click()
+
+
+class ItemSlot(UIElement):
+    """道具槽"""
+    
+    def __init__(self, element_id: str, slot_index: int = 0):
+        super().__init__(element_id, f"道具槽_{slot_index}")
+        self.slot_index = slot_index
+        self.item = None
+    
+    def click(self):
+        if self.enabled and self.item:
+            print(f"点击道具: {self.item}")
+
+
+class InventoryPanel(UIElement):
+    """背包面板"""
+    
+    def __init__(self, element_id: str = "inventory_panel", slot_count: int = 20):
+        super().__init__(element_id, "背包")
+        self.slots = []
+        
+        # 创建道具槽
+        for i in range(slot_count):
+            slot = ItemSlot(f"item_slot_{i}", i)
+            slot.parent = self
+            self.children.append(slot)
+            self.slots.append(slot)
+    
+    def get_slot(self, index: int):
+        if 0 <= index < len(self.slots):
+            return self.slots[index]
+        return None
+```
+
+### 7.4 游戏集成
+
+```python
+# main.py
+from engine.ui import UIManager, Button, InventoryPanel
+from engine.testing.socket_server import GameTestServer
+from engine.testing.config import TestModeConfig
+
+class MyGame:
+    def __init__(self):
+        # 创建 UI 管理器
+        self.ui_manager = UIManager()
+        
+        # 创建 UI 元素
+        self._create_ui()
+    
+    def _create_ui(self):
+        # 背包
+        self.inventory = InventoryPanel()
+        self.ui_manager.register(self.inventory)
+        
+        # 按钮
+        self.btn_start = Button("btn_start", "开始游戏", self._on_start)
+        self.btn_start.x = 400
+        self.btn_start.y = 300
+        self.ui_manager.register(self.btn_start)
+    
+    def _on_start(self):
+        print("游戏开始！")
+    
+    def run(self):
+        # 检查测试模式
+        config = TestModeConfig.from_file()
+        
+        test_server = None
+        if config.enabled:
+            test_server = GameTestServer(self, port=config.port)
+            test_server.start()
+        
+        try:
+            self._game_loop()
+        finally:
+            if test_server:
+                test_server.stop()
+```
+
+### 7.5 UI 测试示例
+
+```python
+# tests/e2e/test_ui.py
+
+def test_click_button(game_client):
+    """测试：点击按钮"""
+    # 通过 ID 点击
+    result = game_client.ui_click(element_id="btn_start")
+    assert result.success
+    
+    # 通过名称点击
+    result = game_client.ui_click(name="开始游戏")
+    assert result.success
+
+def test_click_item_slot(game_client):
+    """测试：点击道具槽"""
+    # 通过路径点击
+    result = game_client.ui_click(path="inventory_panel/item_slot_0")
+    assert result.success
+
+def test_click_at_coordinates(game_client):
+    """测试：点击坐标"""
+    result = game_client.ui_click_at(x=400, y=300)
+    assert result.success
+    print(f"点击的元素: {result.result.get('element')}")
+
+def test_list_ui_elements(game_client):
+    """测试：列出 UI 元素"""
+    result = game_client.ui_list_elements()
+    assert result.success
+    print(f"UI 元素数量: {result.result['count']}")
+
+def test_use_item(game_client):
+    """测试：使用道具"""
+    # 通过槽位使用
+    result = game_client.item_use(slot_index=0)
+    assert result.success
+    
+    # 通过道具 ID 使用
+    result = game_client.item_use(item_id="potion_hp")
+    assert result.success
+
+def test_complete_flow(paused_game):
+    """测试：完整流程"""
+    client = paused_game
+    
+    # 1. 打开背包
+    client.input_key("I")
+    
+    # 2. 等待背包出现
+    result = client.ui_wait_for_element(name="背包", timeout=2.0)
+    assert result.result["found"]
+    
+    # 3. 获取道具信息
+    result = client.item_get_info(slot_index=0)
+    if result.success and result.result.get("item"):
+        # 4. 使用道具
+        result = client.item_use(slot_index=0)
+        assert result.success
+```
+
+### 7.6 UI 指令列表
+
+| 指令 | 方法 | 说明 |
+|------|------|------|
+| ui.click | `ui_click(id=None, name=None, path=None)` | 点击 UI 元素 |
+| ui.click_at | `ui_click_at(x, y)` | 点击坐标 |
+| ui.get_element | `ui_get_element(id=None, name=None, path=None)` | 获取元素信息 |
+| ui.list_elements | `ui_list_elements()` | 列出所有元素 |
+| ui.get_hierarchy | `ui_get_hierarchy()` | 获取 UI 层级 |
+| ui.wait_for_element | `ui_wait_for_element(name, timeout)` | 等待元素出现 |
+| item.use | `item_use(slot_index=None, item_id=None)` | 使用道具 |
+| item.get_info | `item_get_info(slot_index=None, item_id=None)` | 获取道具信息 |
+| item.equip | `item_equip(item_id)` | 装备道具 |
+| item.drop | `item_drop(item_id)` | 丢弃道具 |
+
+---
+
+## 八、完整目录结构
 
 ```
 your-game/
 ├── src/
 │   └── engine/
+│       ├── ui/
+│       │   ├── __init__.py
+│       │   ├── element.py        # UI 元素基类
+│       │   ├── manager.py        # UI 管理器
+│       │   └── widgets.py        # UI 组件
 │       └── testing/
-│           ├── socket_server.py    # Socket 服务器
-│           └── config.py           # 配置读取器
+│           ├── socket_server.py  # Socket 服务器
+│           ├── config.py         # 配置读取器
+│           └── integration.py    # 集成示例
 ├── tests/
 │   └── e2e/
-│       ├── conftest.py             # Pytest 配置
-│       ├── launcher.py             # 游戏启动器
-│       ├── client.py               # 测试客户端
-│       ├── test_basic.py           # 基础测试
-│       └── test_game_logic.py      # 逻辑测试
-├── main.py                          # 游戏入口
-├── pyproject.toml                   # 项目配置
+│       ├── conftest.py           # Pytest 配置
+│       ├── launcher.py           # 游戏启动器
+│       ├── client.py             # 测试客户端
+│       ├── test_basic.py         # 基础测试
+│       ├── test_game_logic.py    # 逻辑测试
+│       └── test_ui.py            # UI 测试
+├── main.py                        # 游戏入口
+├── pyproject.toml                 # 项目配置
 └── README.md
 ```

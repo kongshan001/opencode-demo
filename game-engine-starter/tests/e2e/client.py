@@ -175,6 +175,112 @@ class GameTestClient:
         """获取渲染次数"""
         return self.send_command("render.count")
     
+    # ============================================================
+    # UI 操作方法
+    # ============================================================
+    
+    def ui_click(
+        self,
+        element_id: str = None,
+        name: str = None,
+        path: str = None
+    ) -> CommandResult:
+        """点击 UI 元素
+        
+        三种定位方式，任选其一：
+        - element_id: 元素 ID
+        - name: 元素名称
+        - path: 元素路径（如 "inventory_panel/item_slot_0"）
+        """
+        params = {}
+        if element_id:
+            params["element_id"] = element_id
+        if name:
+            params["name"] = name
+        if path:
+            params["path"] = path
+        return self.send_command("ui.click", params)
+    
+    def ui_click_at(self, x: int, y: int) -> CommandResult:
+        """点击指定坐标"""
+        return self.send_command("ui.click_at", {"x": x, "y": y})
+    
+    def ui_get_element(
+        self,
+        element_id: str = None,
+        name: str = None,
+        path: str = None
+    ) -> CommandResult:
+        """获取 UI 元素信息"""
+        params = {}
+        if element_id:
+            params["element_id"] = element_id
+        if name:
+            params["name"] = name
+        if path:
+            params["path"] = path
+        return self.send_command("ui.get_element", params)
+    
+    def ui_list_elements(self, visible_only: bool = True) -> CommandResult:
+        """列出所有 UI 元素"""
+        return self.send_command("ui.list_elements", {"visible_only": visible_only})
+    
+    def ui_get_hierarchy(self) -> CommandResult:
+        """获取 UI 层级结构"""
+        return self.send_command("ui.get_hierarchy")
+    
+    def ui_wait_for_element(
+        self,
+        element_id: str = None,
+        name: str = None,
+        timeout: float = 5.0
+    ) -> CommandResult:
+        """等待元素出现"""
+        params = {"timeout": timeout}
+        if element_id:
+            params["element_id"] = element_id
+        if name:
+            params["name"] = name
+        return self.send_command("ui.wait_for_element", params)
+    
+    # ============================================================
+    # 道具操作方法
+    # ============================================================
+    
+    def item_use(
+        self,
+        slot_index: int = None,
+        item_id: str = None
+    ) -> CommandResult:
+        """使用道具"""
+        params = {}
+        if slot_index is not None:
+            params["slot_index"] = slot_index
+        if item_id:
+            params["item_id"] = item_id
+        return self.send_command("item.use", params)
+    
+    def item_get_info(
+        self,
+        slot_index: int = None,
+        item_id: str = None
+    ) -> CommandResult:
+        """获取道具信息"""
+        params = {}
+        if slot_index is not None:
+            params["slot_index"] = slot_index
+        if item_id:
+            params["item_id"] = item_id
+        return self.send_command("item.get_info", params)
+    
+    def item_equip(self, item_id: str) -> CommandResult:
+        """装备道具"""
+        return self.send_command("item.equip", {"item_id": item_id})
+    
+    def item_drop(self, item_id: str) -> CommandResult:
+        """丢弃道具"""
+        return self.send_command("item.drop", {"item_id": item_id})
+    
     # 上下文管理
     def __enter__(self):
         self.connect()

@@ -50,6 +50,20 @@ class CommandType(Enum):
     
     # 渲染
     RENDER_COUNT = "render.count"
+    
+    # UI 操作
+    UI_CLICK = "ui.click"
+    UI_CLICK_AT = "ui.click_at"
+    UI_GET_ELEMENT = "ui.get_element"
+    UI_LIST_ELEMENTS = "ui.list_elements"
+    UI_GET_HIERARCHY = "ui.get_hierarchy"
+    UI_WAIT_FOR_ELEMENT = "ui.wait_for_element"
+    
+    # 道具操作
+    ITEM_USE = "item.use"
+    ITEM_EQUIP = "item.equip"
+    ITEM_DROP = "item.drop"
+    ITEM_GET_INFO = "item.get_info"
 
 
 @dataclass
@@ -98,6 +112,20 @@ class GameTestServer:
             CommandType.INPUT_KEY.value: self._handle_input_key,
             CommandType.PERF_FPS.value: self._handle_perf_fps,
             CommandType.RENDER_COUNT.value: self._handle_render_count,
+            
+            # UI 操作
+            CommandType.UI_CLICK.value: self._handle_ui_click,
+            CommandType.UI_CLICK_AT.value: self._handle_ui_click_at,
+            CommandType.UI_GET_ELEMENT.value: self._handle_ui_get_element,
+            CommandType.UI_LIST_ELEMENTS.value: self._handle_ui_list_elements,
+            CommandType.UI_GET_HIERARCHY.value: self._handle_ui_get_hierarchy,
+            CommandType.UI_WAIT_FOR_ELEMENT.value: self._handle_ui_wait_for_element,
+            
+            # 道具操作
+            CommandType.ITEM_USE.value: self._handle_item_use,
+            CommandType.ITEM_EQUIP.value: self._handle_item_equip,
+            CommandType.ITEM_DROP.value: self._handle_item_drop,
+            CommandType.ITEM_GET_INFO.value: self._handle_item_get_info,
         }
         
         # 自定义处理器
@@ -388,3 +416,236 @@ class GameTestServer:
         draw_count = getattr(renderer, 'draw_count', 0) if renderer else 0
         
         return {"draw_calls": draw_count}
+    
+    # ============================================================
+    # UI 操作指令处理器
+    # ============================================================
+    
+    def _handle_ui_click(self, params: dict) -> dict:
+        """点击 UI 元素
+        
+        参数:
+            - element_id: 元素 ID
+            - name: 元素名称
+            - path: 元素路径（如 "inventory_panel/item_slot_0"）
+        """
+        ui_manager = self._get_ui_manager()
+        if not ui_manager:
+            raise NotImplementedError("UI manager not available")
+        
+        element_id = params.get("element_id")
+        name = params.get("name")
+        path = params.get("path")
+        
+        success = ui_manager.click_element(
+            element_id=element_id,
+            name=name,
+            path=path
+        )
+        
+        return {
+            "success": success,
+            "element_id": element_id,
+            "name": name,
+            "path": path,
+        }
+    
+    def _handle_ui_click_at(self, params: dict) -> dict:
+        """点击指定坐标
+        
+        参数:
+            - x: X 坐标
+            - y: Y 坐标
+        """
+        ui_manager = self._get_ui_manager()
+        if not ui_manager:
+            raise NotImplementedError("UI manager not available")
+        
+        x = params["x"]
+        y = params["y"]
+        
+        # 获取点击的元素
+        element = ui_manager.get_element_at(x, y)
+        element_info = element.to_dict() if element else None
+        
+        # 执行点击
+        success = ui_manager.click_at(x, y)
+        
+        return {
+            "success": success,
+            "x": x,
+            "y": y,
+            "element": element_info,
+        }
+    
+    def _handle_ui_get_element(self, params: dict) -> dict:
+        """获取 UI 元素信息
+        
+        参数:
+            - element_id: 元素 ID
+            - name: 元素名称
+            - path: 元素路径
+        """
+        ui_manager = self._get_ui_manager()
+        if not ui_manager:
+            raise NotImplementedError("UI manager not available")
+        
+        element_id = params.get("element_id")
+        name = params.get("name")
+        path = params.get("path")
+        
+        element = None
+        if element_id:
+            element = ui_manager.get_element(element_id)
+        elif name:
+            element = ui_manager.find_element_by_name(name)
+        elif path:
+            element = ui_manager.find_element_by_path(path)
+        
+        if element is None:
+            raise ValueError("Element not found")
+        
+        return element.to_dict()
+    
+    def _handle_ui_list_elements(self, params: dict) -> dict:
+        """列出所有 UI 元素"""
+        ui_manager = self._get_ui_manager()
+        if not ui_manager:
+            raise NotImplementedError("UI manager not available")
+        
+        visible_only = params.get("visible_only", True)
+        elements = ui_manager.list_elements(visible_only)
+        
+        return {
+            "count": len(elements),
+            "elements": elements,
+        }
+    
+    def _handle_ui_get_hierarchy(self, params: dict) -> dict:
+        """获取 UI 层级结构"""
+        ui_manager = self._get_ui_manager()
+        if not ui_manager:
+            raise NotImplementedError("UI manager not available")
+        
+        return ui_manager.get_hierarchy()
+    
+    def _handle_ui_wait_for_element(self, params: dict) -> dict:
+        """等待元素出现
+        
+        参数:
+            - element_id: 元素 ID
+            - name: 元素名称
+            - timeout: 超时时间（秒）
+        """
+        ui_manager = self._get_ui_manager()
+        if not ui_manager:
+            raise NotImplementedError("UI manager not available")
+        
+        element_id = params.get("element_id")
+        name = params.get("name")
+        timeout = params.get("timeout", 5.0)
+        
+        start = time.perf_counter()
+        
+        while time.perf_counter() - start < timeout:
+            element = None
+            if element_id:
+                element = ui_manager.get_element(element_id)
+            elif name:
+                element = ui_manager.find_element_by_name(name)
+            
+            if element and element.visible:
+                return {
+                    "found": True,
+                    "element": element.to_dict(),
+                }
+            
+            time.sleep(0.1)
+        
+        return {
+            "found": False,
+            "error": "Timeout waiting for element",
+        }
+    
+    # ============================================================
+    # 道具操作指令处理器
+    # ============================================================
+    
+    def _handle_item_use(self, params: dict) -> dict:
+        """使用道具
+        
+        参数:
+            - slot_index: 道具槽索引
+            - item_id: 道具 ID
+        """
+        # 方式1：通过槽位索引
+        slot_index = params.get("slot_index")
+        if slot_index is not None:
+            ui_manager = self._get_ui_manager()
+            if ui_manager:
+                inventory = ui_manager.get_element("inventory_panel")
+                if inventory and hasattr(inventory, 'get_slot'):
+                    slot = inventory.get_slot(slot_index)
+                    if slot:
+                        slot.click()
+                        return {"success": True, "slot_index": slot_index}
+        
+        # 方式2：通过道具 ID
+        item_id = params.get("item_id")
+        if item_id:
+            if hasattr(self.game, 'use_item'):
+                self.game.use_item(item_id)
+                return {"success": True, "item_id": item_id}
+        
+        raise ValueError("Failed to use item")
+    
+    def _handle_item_get_info(self, params: dict) -> dict:
+        """获取道具信息
+        
+        参数:
+            - slot_index: 道具槽索引
+            - item_id: 道具 ID
+        """
+        ui_manager = self._get_ui_manager()
+        if not ui_manager:
+            raise NotImplementedError("UI manager not available")
+        
+        slot_index = params.get("slot_index")
+        item_id = params.get("item_id")
+        
+        if slot_index is not None:
+            inventory = ui_manager.get_element("inventory_panel")
+            if inventory and hasattr(inventory, 'get_slot'):
+                slot = inventory.get_slot(slot_index)
+                if slot:
+                    return {
+                        "slot_index": slot_index,
+                        "item": slot.item,
+                    }
+        
+        raise ValueError("Item not found")
+    
+    def _handle_item_equip(self, params: dict) -> dict:
+        """装备道具"""
+        item_id = params["item_id"]
+        
+        if hasattr(self.game, 'equip_item'):
+            self.game.equip_item(item_id)
+            return {"success": True}
+        
+        raise NotImplementedError("equip_item not implemented")
+    
+    def _handle_item_drop(self, params: dict) -> dict:
+        """丢弃道具"""
+        item_id = params["item_id"]
+        
+        if hasattr(self.game, 'drop_item'):
+            self.game.drop_item(item_id)
+            return {"success": True}
+        
+        raise NotImplementedError("drop_item not implemented")
+    
+    def _get_ui_manager(self):
+        """获取 UI 管理器"""
+        return getattr(self.game, 'ui_manager', None) or \
+               getattr(self.game, 'ui', None)
