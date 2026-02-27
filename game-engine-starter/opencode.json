@@ -38,7 +38,7 @@
       }
     },
     "engine-tester": {
-      "description": "引擎测试工程师，专注于 Mock 架构和自动化测试",
+      "description": "引擎测试工程师（Mock 架构）",
       "mode": "subagent",
       "tools": {
         "write": true,
@@ -48,6 +48,21 @@
         "bash": {
           "pytest *": "allow",
           "python -m pytest *": "allow"
+        }
+      }
+    },
+    "e2e-tester": {
+      "description": "E2E 测试工程师（Socket 通信）",
+      "mode": "subagent",
+      "tools": {
+        "write": true,
+        "bash": true
+      },
+      "permission": {
+        "bash": {
+          "pytest tests/e2e *": "allow",
+          "python tests/e2e/*": "allow",
+          "python main.py --test-mode*": "allow"
         }
       }
     }
@@ -87,6 +102,21 @@
     "coverage": {
       "template": "生成覆盖率报告",
       "description": "运行测试覆盖率分析",
+      "agent": "build"
+    },
+    "e2e": {
+      "template": "运行 E2E 测试",
+      "description": "运行 E2E 测试（Socket 通信）",
+      "agent": "build"
+    },
+    "generate-socket-test": {
+      "template": "生成 Socket 测试代码模板",
+      "description": "为指定功能生成测试代码",
+      "agent": "build"
+    },
+    "generate-entity": {
+      "template": "生成实体类",
+      "description": "创建实体类模板",
       "agent": "build"
     }
   },
