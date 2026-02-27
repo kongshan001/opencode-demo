@@ -1,0 +1,98 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  
+  "model": "anthropic/claude-sonnet-4-20250514",
+  "small_model": "anthropic/claude-haiku-4-20250514",
+  
+  "agent": {
+    "python-reviewer": {
+      "description": "Python 代码审查专家",
+      "mode": "subagent",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    },
+    "performance-analyst": {
+      "description": "游戏性能分析师",
+      "mode": "subagent",
+      "tools": {
+        "bash": true
+      },
+      "permission": {
+        "bash": {
+          "python *": "allow",
+          "pylint *": "allow",
+          "mypy *": "allow",
+          "pytest *": "allow"
+        }
+      }
+    },
+    "game-tester": {
+      "description": "游戏测试工程师",
+      "mode": "subagent",
+      "tools": {
+        "write": true,
+        "bash": true
+      }
+    }
+  },
+  
+  "command": {
+    "run": {
+      "template": "运行游戏",
+      "description": "启动游戏",
+      "agent": "build"
+    },
+    "test": {
+      "template": "运行测试",
+      "description": "运行测试套件",
+      "agent": "build"
+    },
+    "lint": {
+      "template": "代码检查",
+      "description": "运行代码质量检查",
+      "agent": "plan"
+    },
+    "profile": {
+      "template": "性能分析",
+      "description": "运行性能分析",
+      "agent": "build"
+    }
+  },
+  
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "git push": "ask",
+      "pip install *": "ask",
+      "rm -rf *": "deny"
+    },
+    "skill": {
+      "*": "allow"
+    }
+  },
+  
+  "instructions": [
+    ".opencode/AGENTS.md"
+  ],
+  
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+  
+  "watcher": {
+    "ignore": [
+      "__pycache__/**",
+      "*.pyc",
+      ".pytest_cache/**",
+      ".mypy_cache/**",
+      "*.egg-info/**",
+      "build/**",
+      "dist/**"
+    ]
+  }
+}
