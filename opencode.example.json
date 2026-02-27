@@ -1,11 +1,78 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  
+  "model": "anthropic/claude-sonnet-4-20250514",
+  "small_model": "anthropic/claude-haiku-4-20250514",
+  
   "mcp": {
     "calculator": {
       "type": "local",
       "command": ["bun", "run", "./mcp-servers/calculator/index.ts"],
-      "enabled": true
+      "enabled": true,
+      "description": "计算器 MCP 服务，提供加法和乘法工具"
+    },
+    "echo": {
+      "type": "local",
+      "command": ["bun", "run", "./mcp-servers/echo/index.ts"],
+      "enabled": true,
+      "description": "Echo MCP 服务，提供回显和文本反转工具"
     }
   },
-  "plugin": []
+  
+  "plugin": [],
+  
+  "agent": {
+    "code-reviewer": {
+      "description": "代码审查专家，专注于代码质量和最佳实践",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    },
+    "test-engineer": {
+      "description": "测试工程师，专注于编写和运行测试",
+      "mode": "subagent",
+      "tools": {
+        "write": true,
+        "bash": true
+      }
+    }
+  },
+  
+  "command": {
+    "test": {
+      "template": "运行项目的测试套件并分析结果",
+      "description": "运行测试",
+      "agent": "build"
+    },
+    "analyze": {
+      "template": "分析当前项目的结构和技术栈",
+      "description": "项目分析",
+      "agent": "explore"
+    }
+  },
+  
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "git push": "ask",
+      "git push --force": "deny",
+      "rm -rf /": "deny"
+    }
+  },
+  
+  "instructions": ["AGENTS.md", "docs/*.md"],
+  
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+  
+  "watcher": {
+    "ignore": ["node_modules/**", "dist/**", ".git/**"]
+  }
 }

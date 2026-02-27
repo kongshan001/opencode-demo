@@ -1,0 +1,13 @@
+{
+  "name": "echo-mcp-server",
+  "version": "1.0.0",
+  "description": "简单的 Echo MCP 服务器",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "bun run index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
