@@ -1,0 +1,54 @@
+# Pytest 配置
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# 标记
+markers = [
+    "unit: 单元测试",
+    "integration: 集成测试",
+    "benchmark: 性能基准测试",
+    "stress: 压力测试",
+    "slow: 慢速测试",
+]
+
+# 命令行选项
+addopts = [
+    "-v",
+    "--tb=short",
+    "-ra",
+]
+
+# 忽略警告
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+# 基准测试配置
+[tool.pytest.benchmark]
+min_rounds = 100
+warmup = true
+warmup_iterations = 10
+disable_gc = false
+
+# 覆盖率配置
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "tests/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

@@ -36,6 +36,20 @@
         "write": true,
         "bash": true
       }
+    },
+    "engine-tester": {
+      "description": "引擎测试工程师，专注于 Mock 架构和自动化测试",
+      "mode": "subagent",
+      "tools": {
+        "write": true,
+        "bash": true
+      },
+      "permission": {
+        "bash": {
+          "pytest *": "allow",
+          "python -m pytest *": "allow"
+        }
+      }
     }
   },
   
@@ -58,6 +72,21 @@
     "profile": {
       "template": "性能分析",
       "description": "运行性能分析",
+      "agent": "build"
+    },
+    "benchmark": {
+      "template": "运行基准测试",
+      "description": "运行性能基准测试",
+      "agent": "build"
+    },
+    "stress": {
+      "template": "运行压力测试",
+      "description": "运行压力测试",
+      "agent": "build"
+    },
+    "coverage": {
+      "template": "生成覆盖率报告",
+      "description": "运行测试覆盖率分析",
       "agent": "build"
     }
   },
@@ -92,7 +121,9 @@
       ".mypy_cache/**",
       "*.egg-info/**",
       "build/**",
-      "dist/**"
+      "dist/**",
+      ".benchmarks/**",
+      "htmlcov/**"
     ]
   }
 }
